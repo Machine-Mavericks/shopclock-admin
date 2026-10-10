@@ -1,3 +1,4 @@
+import * as db from "../database";
 import {
   ADMIN_FLUXER_ALLOWED_IDS,
   FLUXER_AUTHORIZE_URL,
@@ -103,6 +104,10 @@ export async function fetchFluxerUser(accessToken: string): Promise<FluxerUser |
   }
 }
 
-export function isAllowedFluxerId(id: string): boolean {
-  return ADMIN_FLUXER_ALLOWED_IDS.includes(id);
+export async function isAllowedFluxerId(id: string): Promise<boolean> {
+  if (ADMIN_FLUXER_ALLOWED_IDS.includes(id)) {
+    return true;
+  }
+
+  return db.isFluxerIdInDatabase(id);
 }

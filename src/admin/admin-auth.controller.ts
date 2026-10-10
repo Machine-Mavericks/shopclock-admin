@@ -42,7 +42,7 @@ export async function fluxerCallback(req: Request, res: Response) {
     return res.status(502).json(errors.OAUTH_EXCHANGE_FAILED);
   }
 
-  if (!isAllowedFluxerId(fluxerUser.id)) {
+  if (!(await isAllowedFluxerId(fluxerUser.id))) {
     return res.redirect(`${ADMIN_FRONTEND_URL}/login?error=not_allowed`);
   }
 
@@ -89,8 +89,8 @@ export function logout(req: Request, res: Response) {
   return res.status(204).send();
 }
 
-export function me(req: Request, res: Response) {
-  if (req.admin?.provider === "fluxer" && !isAllowedFluxerId(req.admin.sub)) {
+export async function me(req: Request, res: Response) {
+  if (req.admin?.provider === "fluxer" && !(await isAllowedFluxerId(req.admin.sub))) {
     return res.status(401).json(errors.ADMIN_UNAUTHORIZED);
   }
 

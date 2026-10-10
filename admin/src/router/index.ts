@@ -21,6 +21,16 @@ const router = createRouter({
       props: true,
     },
     {
+      path: "/attendance",
+      name: "attendance",
+      component: () => import("../views/AttendanceView.vue"),
+    },
+    {
+      path: "/admins",
+      name: "admins",
+      component: () => import("../views/AdminsView.vue"),
+    },
+    {
       path: "/:pathMatch(.*)*",
       name: "not-found",
       component: () => import("../views/NotFoundView.vue"),

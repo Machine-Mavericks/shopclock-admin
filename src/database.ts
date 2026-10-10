@@ -34,6 +34,25 @@ export interface AdminUser {
   username: string;
   passwordHash: string;
   disabled: boolean;
+  createdAt: string;
+}
+
+export interface FluxerAdminId {
+  id: number;
+  fluxerId: string;
+  label: string | null;
+  addedBy: string | null;
+  createdAt: string;
+}
+
+export interface CurrentlyPunchedIn {
+  studentId: number;
+  fullName: string;
+  timeIn: number;
+}
+
+export interface SessionWithStudent extends Session {
+  fullName: string;
 }
 
 const DUPLICATE_PUNCH_WINDOW_MS = 5000;
@@ -78,6 +97,17 @@ function mapAdminUser(row: Record<string, unknown>): AdminUser {
     username: String(row.username),
     passwordHash: String(row.password_hash),
     disabled: Boolean(row.disabled),
+    createdAt: String(row.created_at),
+  };
+}
+
+function mapFluxerAdminId(row: Record<string, unknown>): FluxerAdminId {
+  return {
+    id: Number(row.id),
+    fluxerId: String(row.fluxer_id),
+    label: row.label === null ? null : String(row.label),
+    addedBy: row.added_by === null ? null : String(row.added_by),
+    createdAt: String(row.created_at),
   };
 }
 
@@ -150,6 +180,16 @@ export async function initDatabase(): Promise<void> {
         password_hash TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         disabled BOOLEAN NOT NULL DEFAULT FALSE
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS fluxer_admin_ids (
+        id SERIAL PRIMARY KEY,
+        fluxer_id VARCHAR(64) NOT NULL UNIQUE,
+        label VARCHAR(100),
+        added_by VARCHAR(64),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 
@@ -446,7 +486,7 @@ export async function listStudents(): Promise<Student[]> {
 export async function getAdminUserByUsername(username: string): Promise<AdminUser | null> {
   try {
     const result = await pool.query(`
-      SELECT id, username, password_hash, disabled
+      SELECT id, username, password_hash, disabled, created_at
       FROM admin_users
       WHERE username = $1;
     `, [username]);
@@ -464,7 +504,7 @@ export async function createAdminUser(username: string, passwordHash: string): P
     const result = await pool.query(`
       INSERT INTO admin_users (username, password_hash)
       VALUES ($1, $2)
-      RETURNING id, username, password_hash, disabled;
+      RETURNING id, username, password_hash, disabled, created_at;
     `, [username, passwordHash]);
 
     const adminUser = result.rows[0];
@@ -472,6 +512,140 @@ export async function createAdminUser(username: string, passwordHash: string): P
   } catch (error) {
     LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
     return null;
+  }
+}
+
+export async function listAdminUsers(): Promise<AdminUser[]> {
+  try {
+    const result = await pool.query(`
+      SELECT id, username, password_hash, disabled, created_at
+      FROM admin_users
+      ORDER BY created_at;
+    `);
+
+    return result.rows.map(mapAdminUser);
+  } catch (error) {
+    LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
+    return [];
+  }
+}
+
+export async function setAdminUserDisabled(id: number, disabled: boolean): Promise<AdminUser | null> {
+  try {
+    const result = await pool.query(`
+      UPDATE admin_users
+      SET disabled = $2
+      WHERE id = $1
+      RETURNING id, username, password_hash, disabled, created_at;
+    `, [id, disabled]);
+
+    const adminUser = result.rows[0];
+    return adminUser ? mapAdminUser(adminUser) : null;
+  } catch (error) {
+    LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
+    return null;
+  }
+}
+
+export async function listFluxerAdminIds(): Promise<FluxerAdminId[]> {
+  try {
+    const result = await pool.query(`
+      SELECT id, fluxer_id, label, added_by, created_at
+      FROM fluxer_admin_ids
+      ORDER BY created_at;
+    `);
+
+    return result.rows.map(mapFluxerAdminId);
+  } catch (error) {
+    LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
+    return [];
+  }
+}
+
+export async function isFluxerIdInDatabase(fluxerId: string): Promise<boolean> {
+  try {
+    const result = await pool.query(`
+      SELECT 1
+      FROM fluxer_admin_ids
+      WHERE fluxer_id = $1;
+    `, [fluxerId]);
+
+    return (result.rowCount ?? 0) > 0;
+  } catch (error) {
+    LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
+    return false;
+  }
+}
+
+export async function addFluxerAdminId(fluxerId: string, label: string | null, addedBy: string | null): Promise<FluxerAdminId | null> {
+  try {
+    const result = await pool.query(`
+      INSERT INTO fluxer_admin_ids (fluxer_id, label, added_by)
+      VALUES ($1, $2, $3)
+      RETURNING id, fluxer_id, label, added_by, created_at;
+    `, [fluxerId, label, addedBy]);
+
+    const fluxerAdminId = result.rows[0];
+    return fluxerAdminId ? mapFluxerAdminId(fluxerAdminId) : null;
+  } catch (error) {
+    LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
+    return null;
+  }
+}
+
+export async function removeFluxerAdminId(id: number): Promise<boolean> {
+  try {
+    const result = await pool.query(`
+      DELETE FROM fluxer_admin_ids
+      WHERE id = $1;
+    `, [id]);
+
+    return (result.rowCount ?? 0) === 1;
+  } catch (error) {
+    LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
+    return false;
+  }
+}
+
+export async function listCurrentlyPunchedIn(): Promise<CurrentlyPunchedIn[]> {
+  try {
+    const result = await pool.query(`
+      SELECT students.id AS student_id, students.full_name, sessions.time_in
+      FROM sessions
+      INNER JOIN students ON students.id = sessions.student_id
+      WHERE sessions.time_out IS NULL
+      ORDER BY sessions.time_in ASC;
+    `);
+
+    return result.rows.map((row) => ({
+      studentId: Number(row.student_id),
+      fullName: String(row.full_name),
+      timeIn: Number(row.time_in),
+    }));
+  } catch (error) {
+    LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
+    return [];
+  }
+}
+
+export async function getSessionsForDateRange(startMs: number, endMs: number): Promise<SessionWithStudent[]> {
+  try {
+    const result = await pool.query(`
+      SELECT sessions.id, sessions.student_id, sessions.time_in, sessions.time_out, students.full_name
+      FROM sessions
+      INNER JOIN students ON students.id = sessions.student_id
+      WHERE sessions.time_in >= $1
+        AND sessions.time_in < $2
+      ORDER BY students.full_name, sessions.time_in;
+    `, [startMs, endMs]);
+
+    return result.rows.map((row) => ({
+      ...mapSession(row),
+      fullName: String(row.full_name),
+    }));
+  } catch (error) {
+    LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
+    return [];
   }
 }
 

@@ -15,6 +15,11 @@ async function handleLogout() {
   <div class="layout">
     <header class="topbar">
       <RouterLink to="/" class="brand">ShopClock Admin</RouterLink>
+      <nav class="nav-links">
+        <RouterLink to="/" class="nav-link">Students</RouterLink>
+        <RouterLink to="/attendance" class="nav-link">Attendance</RouterLink>
+        <RouterLink to="/admins" class="nav-link">Admins</RouterLink>
+      </nav>
       <div class="account" v-if="auth.admin">
         <span class="username">{{ auth.admin.username }}</span>
         <span class="provider-badge">{{ auth.admin.provider }}</span>
@@ -47,6 +52,23 @@ async function handleLogout() {
   font-size: 1.1rem;
   color: var(--text);
   text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.nav-link.router-link-exact-active {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .account {
