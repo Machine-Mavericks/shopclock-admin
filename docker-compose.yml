@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: shopclock-db
+
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: .
+    container_name: shopclock-backend
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      API_BEARER_TOKEN: ${API_BEARER_TOKEN}
+      NODE_ENV: ${NODE_ENV:-development}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      ADMIN_SESSION_TTL_SECONDS: ${ADMIN_SESSION_TTL_SECONDS}
+      ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
+      FLUXER_CLIENT_ID: ${FLUXER_CLIENT_ID}
+      FLUXER_CLIENT_SECRET: ${FLUXER_CLIENT_SECRET}
+      FLUXER_AUTHORIZE_URL: ${FLUXER_AUTHORIZE_URL}
+      FLUXER_TOKEN_URL: ${FLUXER_TOKEN_URL}
+      FLUXER_USER_URL: ${FLUXER_USER_URL}
+      FLUXER_REDIRECT_URI: ${FLUXER_REDIRECT_URI}
+      FLUXER_SCOPES: ${FLUXER_SCOPES}
+      ADMIN_FLUXER_ALLOWED_IDS: ${ADMIN_FLUXER_ALLOWED_IDS}
+      FLUXER_STUB_MODE: ${FLUXER_STUB_MODE}
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  admin:
+    build:
+      context: ./admin
+      args:
+        VITE_API_BASE_URL: ${ADMIN_API_BASE_URL}
+    container_name: shopclock-admin-ui
+
+    ports:
+      - "8080:80"
+
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

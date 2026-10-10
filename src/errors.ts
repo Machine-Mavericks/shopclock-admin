@@ -1,0 +1,11 @@
+export const MALFORMED_PUNCH_REQUEST = { error: "malformed_punch_request", error_description: "missing code body parameter"};
+export const STUDENT_NOT_FOUND = { error: "student_not_found", error_description: "student not found"};
+export const MALFORMED_CREATE_STUDENT_REQUEST = { error: "malformed_create_student_request", error_description: "fullName is required and credentialType must be static or rotating"};
+export const CREATE_STUDENT_FAILED = { error: "create_student_failed", error_description: "failed to create the student"};
+export const MALFORMED_GET_STUDENT_REQUEST = { error: "malformed_get_student_request", error_description: "missing id parameters"};
+export const STUDENT_EXISTS = { error: "student_exists", error_description: "a student with that secret exists"};
+export const MALFORMED_GET_SESSIONS_REQUEST = { error: "malformed_get_sessions_request", error_description: "missing id parameters"}
+export const SESSIONS_NOT_FOUND = { error: "sessions_not_found", error_description: "sessions not found"};
+export const MALFORMED_NEW_CREDENTIAL_REQUEST = { error: "malformed_new_credential_request", error_description: "id parameter and credentialType (static or rotating) are required"};
+export const NEW_CREDENTIAL_FAILED = { error: "new_credential_failed", error_description: "failed to generate a new credential"};
+export const UNAUTHORIZED = { error: "unauthorized", error_description: "missing or invalid bearer token"};
