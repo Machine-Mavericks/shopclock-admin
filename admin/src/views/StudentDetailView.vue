@@ -4,6 +4,7 @@ import {
   getSessions,
   getStudent,
   regenerateCredential,
+  type Credential,
   type CredentialType,
   type Session,
   type StudentDetail,
@@ -23,7 +24,7 @@ const credentialType = ref<CredentialType>("static");
 const regenerateSecret = ref("");
 const regenerating = ref(false);
 const regenerateError = ref<string | null>(null);
-const qr = ref<{ label: string; value: string } | null>(null);
+const qr = ref<{ label: string; credential: Credential } | null>(null);
 
 function studentId(): number {
   return Number(props.id);
@@ -59,10 +60,9 @@ async function handleRegenerate() {
       credentialType.value,
       trimmedSecret.length > 0 ? trimmedSecret : undefined,
     );
-    const credential = result.credential;
     qr.value = {
       label: result.student.fullName,
-      value: credential.type === "static" ? credential.qrCode : credential.enrollmentCode,
+      credential: result.credential,
     };
     regenerateSecret.value = "";
   } catch (error) {
@@ -119,7 +119,22 @@ watch(() => props.id, load);
         </form>
 
         <div v-if="qr" class="created-qr">
-          <QrDisplay :value="qr.value" :label="qr.label" />
+          <QrDisplay
+            :value="qr.credential.type === 'static' ? qr.credential.qrCode : qr.credential.enrollmentCode"
+            :label="qr.label"
+          />
+
+          <dl v-if="qr.credential.type === 'rotating'" class="credential-details">
+            <dt>Credential ID</dt>
+            <dd><code>{{ qr.credential.id }}</code></dd>
+            <dt>Secret</dt>
+            <dd><code>{{ qr.credential.secret }}</code></dd>
+          </dl>
+
+          <dl v-else class="credential-details">
+            <dt>QR text</dt>
+            <dd><code>{{ qr.credential.qrCode }}</code></dd>
+          </dl>
         </div>
       </section>
 
@@ -184,6 +199,31 @@ label {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
   border-top: 1px solid var(--border);
+}
+
+.credential-details {
+  margin: 1rem 0 0;
+  width: 100%;
+  max-width: 24rem;
+}
+
+.credential-details dt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.credential-details dd {
+  margin: 0.15rem 0 0.75rem;
+}
+
+.credential-details code {
+  display: block;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255 / 4%);
+  word-break: break-all;
+  font-size: 0.85rem;
 }
 
 section + section {

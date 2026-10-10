@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { createStudent, listStudents, type CredentialType, type Student } from "../api/students";
+import { createStudent, listStudents, type Credential, type CredentialType, type Student } from "../api/students";
 import { ApiError } from "../api/client";
 import AdminLayout from "../components/AdminLayout.vue";
 import QrDisplay from "../components/QrDisplay.vue";
@@ -14,7 +14,7 @@ const newCredentialType = ref<CredentialType>("static");
 const newSecret = ref("");
 const creating = ref(false);
 const createError = ref<string | null>(null);
-const createdQr = ref<{ label: string; value: string } | null>(null);
+const createdQr = ref<{ label: string; credential: Credential } | null>(null);
 
 async function load() {
   loading.value = true;
@@ -47,10 +47,9 @@ async function handleCreate() {
       newCredentialType.value,
       trimmedSecret.length > 0 ? trimmedSecret : undefined,
     );
-    const credential = result.credential;
     createdQr.value = {
       label: result.student.fullName,
-      value: credential.type === "static" ? credential.qrCode : credential.enrollmentCode,
+      credential: result.credential,
     };
     newName.value = "";
     newSecret.value = "";
@@ -95,7 +94,22 @@ onMounted(load);
 
       <div v-if="createdQr" class="created-qr">
         <p>Scan to enroll {{ createdQr.label }}:</p>
-        <QrDisplay :value="createdQr.value" :label="createdQr.label" />
+        <QrDisplay
+          :value="createdQr.credential.type === 'static' ? createdQr.credential.qrCode : createdQr.credential.enrollmentCode"
+          :label="createdQr.label"
+        />
+
+        <dl v-if="createdQr.credential.type === 'rotating'" class="credential-details">
+          <dt>Credential ID</dt>
+          <dd><code>{{ createdQr.credential.id }}</code></dd>
+          <dt>Secret</dt>
+          <dd><code>{{ createdQr.credential.secret }}</code></dd>
+        </dl>
+
+        <dl v-else class="credential-details">
+          <dt>QR text</dt>
+          <dd><code>{{ createdQr.credential.qrCode }}</code></dd>
+        </dl>
       </div>
     </section>
 
@@ -150,5 +164,30 @@ label {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
   border-top: 1px solid var(--border);
+}
+
+.credential-details {
+  margin: 1rem 0 0;
+  width: 100%;
+  max-width: 24rem;
+}
+
+.credential-details dt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.credential-details dd {
+  margin: 0.15rem 0 0.75rem;
+}
+
+.credential-details code {
+  display: block;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255 / 4%);
+  word-break: break-all;
+  font-size: 0.85rem;
 }
 </style>
