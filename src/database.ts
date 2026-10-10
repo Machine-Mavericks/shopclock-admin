@@ -237,6 +237,21 @@ export async function getStudent(value: number | string): Promise<Student | null
   }
 }
 
+export async function isSecretInUse(secret: string): Promise<boolean> {
+  try {
+    const result = await pool.query(`
+      SELECT 1
+      FROM punch_credentials
+      WHERE secret = $1;
+    `, [secret]);
+
+    return (result.rowCount ?? 0) > 0;
+  } catch (error) {
+    LOGGER.error(`${DATABASE_QUERY_ERROR}\n${error}`);
+    return false;
+  }
+}
+
 export async function getPunchCredential(id: string): Promise<PunchCredential | null> {
   try {
     const result = await pool.query(`

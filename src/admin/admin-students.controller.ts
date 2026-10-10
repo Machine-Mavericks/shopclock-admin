@@ -9,7 +9,7 @@ export async function listStudents(req: Request, res: Response) {
 }
 
 export async function createStudent(req: Request, res: Response) {
-  const { fullName, credentialType = "static" } = req.body ?? {};
+  const { fullName, credentialType = "static", secret: requestedSecret } = req.body ?? {};
 
   if (
     typeof fullName !== "string"
@@ -19,7 +19,27 @@ export async function createStudent(req: Request, res: Response) {
     return res.status(400).json(errors.MALFORMED_CREATE_STUDENT_REQUEST);
   }
 
-  const secret = generateCredentialSecret(credentialType);
+  if (requestedSecret !== undefined && (
+    credentialType !== "static"
+    || typeof requestedSecret !== "string"
+    || requestedSecret.trim().length === 0
+    || requestedSecret.length > 128
+  )) {
+    return res.status(400).json(errors.MALFORMED_SECRET);
+  }
+
+  let secret: string;
+
+  if (typeof requestedSecret === "string") {
+    secret = requestedSecret.trim();
+
+    if (await db.isSecretInUse(secret)) {
+      return res.status(409).json(errors.SECRET_ALREADY_IN_USE);
+    }
+  } else {
+    secret = generateCredentialSecret(credentialType);
+  }
+
   const created = await db.createStudent(fullName.trim(), credentialType, secret);
 
   if (!created) {
@@ -52,7 +72,7 @@ export async function getStudent(req: Request, res: Response) {
 
 export async function regenerateCredential(req: Request, res: Response) {
   const id = Number(req.params.id);
-  const { credentialType } = req.body ?? {};
+  const { credentialType, secret: requestedSecret } = req.body ?? {};
 
   if (!Number.isSafeInteger(id) || id <= 0) {
     return res.status(400).json(errors.MALFORMED_NEW_CREDENTIAL_REQUEST);
@@ -62,13 +82,33 @@ export async function regenerateCredential(req: Request, res: Response) {
     return res.status(400).json(errors.MALFORMED_NEW_CREDENTIAL_REQUEST);
   }
 
+  if (requestedSecret !== undefined && (
+    credentialType !== "static"
+    || typeof requestedSecret !== "string"
+    || requestedSecret.trim().length === 0
+    || requestedSecret.length > 128
+  )) {
+    return res.status(400).json(errors.MALFORMED_SECRET);
+  }
+
   const student = await db.getStudent(id);
 
   if (!student) {
     return res.status(404).json(errors.STUDENT_NOT_FOUND);
   }
 
-  const secret = generateCredentialSecret(credentialType);
+  let secret: string;
+
+  if (typeof requestedSecret === "string") {
+    secret = requestedSecret.trim();
+
+    if (await db.isSecretInUse(secret)) {
+      return res.status(409).json(errors.SECRET_ALREADY_IN_USE);
+    }
+  } else {
+    secret = generateCredentialSecret(credentialType);
+  }
+
   const credential = await db.regeneratePunchCredential(student.id, credentialType, secret);
 
   if (!credential) {

@@ -20,6 +20,7 @@ const loading = ref(true);
 const loadError = ref<string | null>(null);
 
 const credentialType = ref<CredentialType>("static");
+const regenerateSecret = ref("");
 const regenerating = ref(false);
 const regenerateError = ref<string | null>(null);
 const qr = ref<{ label: string; value: string } | null>(null);
@@ -52,12 +53,18 @@ async function handleRegenerate() {
   regenerating.value = true;
 
   try {
-    const result = await regenerateCredential(studentId(), credentialType.value);
+    const trimmedSecret = regenerateSecret.value.trim();
+    const result = await regenerateCredential(
+      studentId(),
+      credentialType.value,
+      trimmedSecret.length > 0 ? trimmedSecret : undefined,
+    );
     const credential = result.credential;
     qr.value = {
       label: result.student.fullName,
       value: credential.type === "static" ? credential.qrCode : credential.enrollmentCode,
     };
+    regenerateSecret.value = "";
   } catch (error) {
     regenerateError.value = error instanceof ApiError ? error.message : "Failed to regenerate credential.";
   } finally {
@@ -98,6 +105,11 @@ watch(() => props.id, load);
             <option value="static">Static (printed QR)</option>
             <option value="rotating">Rotating (phone enrollment)</option>
           </select>
+
+          <template v-if="credentialType === 'static'">
+            <label for="regenerateSecret">Custom secret (optional)</label>
+            <input id="regenerateSecret" v-model="regenerateSecret" type="text" placeholder="Leave blank to auto-generate" />
+          </template>
 
           <p v-if="regenerateError" class="error-banner">{{ regenerateError }}</p>
 

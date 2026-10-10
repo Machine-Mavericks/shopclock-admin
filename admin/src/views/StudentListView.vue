@@ -11,6 +11,7 @@ const loadError = ref<string | null>(null);
 
 const newName = ref("");
 const newCredentialType = ref<CredentialType>("static");
+const newSecret = ref("");
 const creating = ref(false);
 const createError = ref<string | null>(null);
 const createdQr = ref<{ label: string; value: string } | null>(null);
@@ -40,13 +41,19 @@ async function handleCreate() {
   creating.value = true;
 
   try {
-    const result = await createStudent(newName.value.trim(), newCredentialType.value);
+    const trimmedSecret = newSecret.value.trim();
+    const result = await createStudent(
+      newName.value.trim(),
+      newCredentialType.value,
+      trimmedSecret.length > 0 ? trimmedSecret : undefined,
+    );
     const credential = result.credential;
     createdQr.value = {
       label: result.student.fullName,
       value: credential.type === "static" ? credential.qrCode : credential.enrollmentCode,
     };
     newName.value = "";
+    newSecret.value = "";
     await load();
   } catch (error) {
     createError.value = error instanceof ApiError ? error.message : "Failed to create student.";
@@ -73,6 +80,11 @@ onMounted(load);
           <option value="static">Static (printed QR)</option>
           <option value="rotating">Rotating (phone enrollment)</option>
         </select>
+
+        <template v-if="newCredentialType === 'static'">
+          <label for="newSecret">Custom secret (optional)</label>
+          <input id="newSecret" v-model="newSecret" type="text" placeholder="Leave blank to auto-generate" />
+        </template>
 
         <p v-if="createError" class="error-banner">{{ createError }}</p>
 

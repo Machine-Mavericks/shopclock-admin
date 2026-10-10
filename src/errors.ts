@@ -8,4 +8,6 @@ export const MALFORMED_GET_SESSIONS_REQUEST = { error: "malformed_get_sessions_r
 export const SESSIONS_NOT_FOUND = { error: "sessions_not_found", error_description: "sessions not found"};
 export const MALFORMED_NEW_CREDENTIAL_REQUEST = { error: "malformed_new_credential_request", error_description: "id parameter and credentialType (static or rotating) are required"};
 export const NEW_CREDENTIAL_FAILED = { error: "new_credential_failed", error_description: "failed to generate a new credential"};
+export const MALFORMED_SECRET = { error: "malformed_secret", error_description: "secret must be a non-empty string of at most 128 characters, and may only be provided for static credentials"};
+export const SECRET_ALREADY_IN_USE = { error: "secret_already_in_use", error_description: "a credential with that secret already exists"};
 export const UNAUTHORIZED = { error: "unauthorized", error_description: "missing or invalid bearer token"};
