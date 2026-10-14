@@ -38,6 +38,15 @@ export const ADMIN_SESSION_TTL_SECONDS: number = Number(process.env.ADMIN_SESSIO
 // Origin of the admin panel frontend. Used for CORS and as the OAuth redirect target.
 export const ADMIN_FRONTEND_URL: string = process.env.ADMIN_FRONTEND_URL || "http://localhost:5173";
 
+// Path the admin frontend is hosted under on that origin (e.g. "/sc/" when it can't
+// have its own subdomain, such as behind an mDNS .local hostname). Normalized to
+// always have both a leading and trailing slash.
+export const ADMIN_FRONTEND_BASE_PATH: string = (() => {
+  const raw = process.env.ADMIN_FRONTEND_BASE_PATH || "/";
+  const withLeadingSlash = raw.startsWith("/") ? raw : `/${raw}`;
+  return withLeadingSlash.endsWith("/") ? withLeadingSlash : `${withLeadingSlash}/`;
+})();
+
 // Fluxer OAuth2 (Discord-style authorize/token/user flow).
 export const FLUXER_CLIENT_ID: string = process.env.FLUXER_CLIENT_ID || "";
 export const FLUXER_CLIENT_SECRET: string = process.env.FLUXER_CLIENT_SECRET || "";

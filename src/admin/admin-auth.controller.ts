@@ -1,7 +1,7 @@
 import argon2 from "argon2";
 import type { Request, Response } from "express";
 import * as db from "../database";
-import { ADMIN_FRONTEND_URL } from "../constants";
+import { ADMIN_FRONTEND_BASE_PATH, ADMIN_FRONTEND_URL } from "../constants";
 import * as errors from "./admin.errors";
 import {
   clearAdminSessionCookie,
@@ -43,7 +43,7 @@ export async function fluxerCallback(req: Request, res: Response) {
   }
 
   if (!(await isAllowedFluxerId(fluxerUser.id))) {
-    return res.redirect(`${ADMIN_FRONTEND_URL}/login?error=not_allowed`);
+    return res.redirect(`${ADMIN_FRONTEND_URL}${ADMIN_FRONTEND_BASE_PATH}login?error=not_allowed`);
   }
 
   issueAdminSessionCookie(res, {
@@ -53,7 +53,7 @@ export async function fluxerCallback(req: Request, res: Response) {
     avatar: fluxerUser.avatar,
   });
 
-  return res.redirect(`${ADMIN_FRONTEND_URL}/`);
+  return res.redirect(`${ADMIN_FRONTEND_URL}${ADMIN_FRONTEND_BASE_PATH}`);
 }
 
 export async function localLogin(req: Request, res: Response) {

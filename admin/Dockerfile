@@ -5,6 +5,8 @@ RUN yarn install --frozen-lockfile
 COPY . .
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG VITE_BASE_PATH
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
 RUN yarn build
 
 FROM nginx:alpine AS runtime
