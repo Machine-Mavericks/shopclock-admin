@@ -131,10 +131,32 @@ export async function initDatabase(): Promise<void> {
   try {
     await client.query("BEGIN");
 
-    // Migrate legacy "students" naming to "users", if present.
+    // Migrate legacy "students" naming to "users", if present. Postgres has no
+    // "RENAME COLUMN IF EXISTS", so the column renames are wrapped in DO blocks
+    // that swallow "already renamed" (undefined_column) and "doesn't exist yet
+    // on a fresh install" (undefined_table) so this stays safe to run every time.
     await client.query(`ALTER TABLE IF EXISTS students RENAME TO users;`);
-    await client.query(`ALTER TABLE IF EXISTS sessions RENAME COLUMN student_id TO user_id;`);
-    await client.query(`ALTER TABLE IF EXISTS punch_credentials RENAME COLUMN student_id TO user_id;`);
+
+    await client.query(`
+      DO $$
+      BEGIN
+        ALTER TABLE sessions RENAME COLUMN student_id TO user_id;
+      EXCEPTION
+        WHEN undefined_column THEN NULL;
+        WHEN undefined_table THEN NULL;
+      END $$;
+    `);
+
+    await client.query(`
+      DO $$
+      BEGIN
+        ALTER TABLE punch_credentials RENAME COLUMN student_id TO user_id;
+      EXCEPTION
+        WHEN undefined_column THEN NULL;
+        WHEN undefined_table THEN NULL;
+      END $$;
+    `);
+
     await client.query(`ALTER INDEX IF EXISTS one_open_session_per_student RENAME TO one_open_session_per_user;`);
 
     await client.query(`
