@@ -16,7 +16,7 @@ async function handleLogout() {
     <header class="topbar">
       <RouterLink to="/" class="brand">ShopClock Admin</RouterLink>
       <nav class="nav-links">
-        <RouterLink to="/" class="nav-link">Students</RouterLink>
+        <RouterLink to="/" class="nav-link">Users</RouterLink>
         <RouterLink to="/attendance" class="nav-link">Attendance</RouterLink>
         <RouterLink to="/admins" class="nav-link">Admins</RouterLink>
       </nav>

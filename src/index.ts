@@ -4,10 +4,10 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import clockRouter from "./punch/clock.routes"
 import adminAuthRouter from "./admin/admin-auth.routes";
-import adminStudentsRouter from "./admin/admin-students.routes";
+import adminUsersRouter from "./admin/admin-users.routes";
 import adminAttendanceRouter from "./admin/admin-attendance.routes";
 import adminAdminsRouter from "./admin/admin-admins.routes";
-import { getStudent, initDatabase, verifyConnection } from "./database";
+import { initDatabase, verifyConnection } from "./database";
 
 const app = express();
 
@@ -20,7 +20,7 @@ app.use("/clock", cors(), clockRouter);
 const adminCors = cors({ origin: ADMIN_FRONTEND_URL, credentials: true });
 app.use("/admin", adminCors);
 app.use("/admin/auth", adminAuthRouter);
-app.use("/admin/students", adminStudentsRouter);
+app.use("/admin/users", adminUsersRouter);
 app.use("/admin/attendance", adminAttendanceRouter);
 app.use("/admin/admins", adminAdminsRouter);
 

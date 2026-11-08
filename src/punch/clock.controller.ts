@@ -14,7 +14,7 @@ const INVALID_PUNCH_CODE = {
   error_description: "the punch code is invalid or expired",
 };
 
-async function getStudentFromPunchCode(code: string): Promise<db.Student | null> {
+async function getUserFromPunchCode(code: string): Promise<db.User | null> {
   const rotatingCode = parseRotatingPunchCode(code);
 
   if (!rotatingCode) {
@@ -28,7 +28,7 @@ async function getStudentFromPunchCode(code: string): Promise<db.Student | null>
       return null;
     }
 
-    return db.getStudent(secret);
+    return db.getUser(secret);
   }
 
   const credential = await db.getPunchCredential(rotatingCode.credentialId);
@@ -41,7 +41,7 @@ async function getStudentFromPunchCode(code: string): Promise<db.Student | null>
     return null;
   }
 
-  return db.getStudent(credential.studentId);
+  return db.getUser(credential.userId);
 }
 
 export async function punch(req: Request, res: Response) {
@@ -51,13 +51,13 @@ export async function punch(req: Request, res: Response) {
     return res.status(400).json(errors.MALFORMED_PUNCH_REQUEST);
   }
 
-  const student = await getStudentFromPunchCode(code);
+  const user = await getUserFromPunchCode(code);
 
-  if (!student) {
+  if (!user) {
     return res.status(401).json(INVALID_PUNCH_CODE);
   }
 
-  const result = await db.handlePunch(student);
+  const result = await db.handlePunch(user);
 
   if (!result) {
     return res.status(500).json({
@@ -68,7 +68,7 @@ export async function punch(req: Request, res: Response) {
 
   return res.json({
     ...result,
-    student,
+    student: user,
   });
 }
 
@@ -84,15 +84,15 @@ export async function createStudent(req: Request, res: Response) {
   }
 
   const secret = generateCredentialSecret(credentialType);
-  const created = await db.createStudent(fullName.trim(), credentialType, secret);
+  const created = await db.createUser(fullName.trim(), "student", credentialType, secret);
 
   if (!created) {
     return res.status(500).json(errors.CREATE_STUDENT_FAILED);
   }
 
   return res.status(201).json({
-    student: created.student,
-    credential: formatCredentialResponse(created.student, created.credential, secret),
+    student: created.user,
+    credential: formatCredentialResponse(created.user, created.credential, secret),
   });
 }
 
@@ -108,22 +108,22 @@ export async function newCredential(req: Request, res: Response) {
     return res.status(400).json(errors.MALFORMED_NEW_CREDENTIAL_REQUEST);
   }
 
-  const student = await db.getStudent(id);
+  const user = await db.getUser(id);
 
-  if (!student) {
+  if (!user) {
     return res.status(404).json(errors.STUDENT_NOT_FOUND);
   }
 
   const secret = generateCredentialSecret(credentialType);
-  const credential = await db.regeneratePunchCredential(student.id, credentialType, secret);
+  const credential = await db.regeneratePunchCredential(user.id, credentialType, secret);
 
   if (!credential) {
     return res.status(500).json(errors.NEW_CREDENTIAL_FAILED);
   }
 
   return res.status(201).json({
-    student,
-    credential: formatCredentialResponse(student, credential, secret),
+    student: user,
+    credential: formatCredentialResponse(user, credential, secret),
   });
 }
 
@@ -150,13 +150,13 @@ export async function getStudentById(req: Request, res: Response) {
     return res.status(400).json(errors.MALFORMED_GET_STUDENT_REQUEST);
   }
 
-  const student = await db.getStudent(id);
+  const user = await db.getUser(id);
 
-  if (!student) {
+  if (!user) {
     return res.status(404).json(errors.STUDENT_NOT_FOUND);
   }
 
-  return res.status(200).json(student);
+  return res.status(200).json(user);
 }
 
 export async function getSessions(req: Request, res: Response) {
@@ -166,13 +166,13 @@ export async function getSessions(req: Request, res: Response) {
     return res.status(400).json(errors.MALFORMED_GET_SESSIONS_REQUEST);
   }
 
-  const student = await db.getStudent(id);
+  const user = await db.getUser(id);
 
-  if (!student) {
+  if (!user) {
     return res.status(404).json(errors.STUDENT_NOT_FOUND);
   }
 
-  const sessions = await db.getSessions(student);
+  const sessions = await db.getSessions(user);
 
   if (!sessions) {
     return res.status(404).json(errors.SESSIONS_NOT_FOUND);

@@ -2,31 +2,41 @@
 import { onMounted, ref, watch } from "vue";
 import {
   getSessions,
-  getStudent,
+  getUser,
   regenerateCredential,
+  setUserRole,
+  togglePunch,
   type Credential,
   type CredentialType,
   type Session,
-  type StudentDetail,
-} from "../api/students";
+  type UserDetail,
+  type UserRole,
+} from "../api/users";
 import { ApiError } from "../api/client";
 import AdminLayout from "../components/AdminLayout.vue";
 import QrDisplay from "../components/QrDisplay.vue";
 
 const props = defineProps<{ id: string }>();
 
-const detail = ref<StudentDetail | null>(null);
+const detail = ref<UserDetail | null>(null);
 const sessions = ref<Session[]>([]);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 
-const credentialType = ref<CredentialType>("static");
+const roleDraft = ref<UserRole>("student");
+const savingRole = ref(false);
+const roleError = ref<string | null>(null);
+
+const punching = ref(false);
+const punchError = ref<string | null>(null);
+
+const credentialType = ref<CredentialType>("rotating");
 const regenerateSecret = ref("");
 const regenerating = ref(false);
 const regenerateError = ref<string | null>(null);
 const qr = ref<{ label: string; credential: Credential } | null>(null);
 
-function studentId(): number {
+function userId(): number {
   return Number(props.id);
 }
 
@@ -37,15 +47,46 @@ async function load() {
 
   try {
     const [detailResult, sessionsResult] = await Promise.all([
-      getStudent(studentId()),
-      getSessions(studentId()),
+      getUser(userId()),
+      getSessions(userId()),
     ]);
     detail.value = detailResult;
     sessions.value = sessionsResult;
+    roleDraft.value = detailResult.user.role;
   } catch (error) {
-    loadError.value = error instanceof ApiError ? error.message : "Failed to load student.";
+    loadError.value = error instanceof ApiError ? error.message : "Failed to load user.";
   } finally {
     loading.value = false;
+  }
+}
+
+async function handleSaveRole() {
+  roleError.value = null;
+  savingRole.value = true;
+
+  try {
+    const updated = await setUserRole(userId(), roleDraft.value);
+    if (detail.value) {
+      detail.value.user = updated;
+    }
+  } catch (error) {
+    roleError.value = error instanceof ApiError ? error.message : "Failed to update role.";
+  } finally {
+    savingRole.value = false;
+  }
+}
+
+async function handleTogglePunch() {
+  punchError.value = null;
+  punching.value = true;
+
+  try {
+    await togglePunch(userId());
+    await load();
+  } catch (error) {
+    punchError.value = error instanceof ApiError ? error.message : "Failed to update punch status.";
+  } finally {
+    punching.value = false;
   }
 }
 
@@ -56,12 +97,12 @@ async function handleRegenerate() {
   try {
     const trimmedSecret = regenerateSecret.value.trim();
     const result = await regenerateCredential(
-      studentId(),
+      userId(),
       credentialType.value,
       trimmedSecret.length > 0 ? trimmedSecret : undefined,
     );
     qr.value = {
-      label: result.student.fullName,
+      label: result.user.fullName,
       credential: result.credential,
     };
     regenerateSecret.value = "";
@@ -88,13 +129,34 @@ watch(() => props.id, load);
     <p v-else-if="loadError" class="error-banner">{{ loadError }}</p>
 
     <template v-else-if="detail">
-      <h1>{{ detail.student.fullName }}</h1>
+      <h1>{{ detail.user.fullName }}</h1>
       <p class="status">
         Status:
         <span :class="detail.punchedIn ? 'status-in' : 'status-out'">
           {{ detail.punchedIn ? "Punched in" : "Punched out" }}
         </span>
+        <button class="secondary punch-button" :disabled="punching" @click="handleTogglePunch">
+          {{ punching ? "Updating..." : detail.punchedIn ? "Punch out" : "Punch in" }}
+        </button>
       </p>
+      <p v-if="punchError" class="error-banner">{{ punchError }}</p>
+
+      <section class="card">
+        <h2>Role</h2>
+        <form @submit.prevent="handleSaveRole">
+          <label for="roleDraft">Tag as</label>
+          <select id="roleDraft" v-model="roleDraft">
+            <option value="student">Student</option>
+            <option value="mentor">Mentor</option>
+          </select>
+
+          <p v-if="roleError" class="error-banner">{{ roleError }}</p>
+
+          <button type="submit" :disabled="savingRole || roleDraft === detail.user.role">
+            {{ savingRole ? "Saving..." : "Save role" }}
+          </button>
+        </form>
+      </section>
 
       <section class="card">
         <h2>Regenerate credential</h2>
@@ -102,8 +164,8 @@ watch(() => props.id, load);
         <form @submit.prevent="handleRegenerate">
           <label for="credentialType">Credential type</label>
           <select id="credentialType" v-model="credentialType">
-            <option value="static">Static (printed QR)</option>
             <option value="rotating">Rotating (phone enrollment)</option>
+            <option value="static">Static (printed QR)</option>
           </select>
 
           <template v-if="credentialType === 'static'">
@@ -169,6 +231,9 @@ h1 {
 
 .status {
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .status-in {
@@ -177,6 +242,11 @@ h1 {
 
 .status-out {
   color: var(--text-muted);
+}
+
+.punch-button {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
 }
 
 .hint {

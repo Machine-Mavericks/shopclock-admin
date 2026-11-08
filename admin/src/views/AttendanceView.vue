@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
 import { attendanceExportUrl, listCurrentlyPunchedIn, type CurrentlyPunchedIn } from "../api/attendance";
+import { togglePunch } from "../api/users";
 import { ApiError } from "../api/client";
 import AdminLayout from "../components/AdminLayout.vue";
 
@@ -8,6 +9,10 @@ const entries = ref<CurrentlyPunchedIn[]>([]);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 const now = ref(Date.now());
+const punchingOutId = ref<number | null>(null);
+const punchError = ref<string | null>(null);
+
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 let tickHandle: ReturnType<typeof setInterval> | undefined;
 
@@ -26,7 +31,7 @@ async function load() {
   try {
     entries.value = await listCurrentlyPunchedIn();
   } catch (error) {
-    loadError.value = error instanceof ApiError ? error.message : "Failed to load currently punched in students.";
+    loadError.value = error instanceof ApiError ? error.message : "Failed to load currently punched in users.";
   } finally {
     loading.value = false;
   }
@@ -35,6 +40,20 @@ async function load() {
 function elapsed(timeIn: number): string {
   const totalMinutes = Math.max(0, Math.round((now.value - timeIn) / 60000));
   return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+}
+
+async function handlePunchOut(userId: number) {
+  punchError.value = null;
+  punchingOutId.value = userId;
+
+  try {
+    await togglePunch(userId);
+    await load();
+  } catch (error) {
+    punchError.value = error instanceof ApiError ? error.message : "Failed to punch out user.";
+  } finally {
+    punchingOutId.value = null;
+  }
 }
 
 onMounted(() => {
@@ -59,22 +78,33 @@ onUnmounted(() => {
       <h2>Currently punched in</h2>
       <p v-if="loading">Loading...</p>
       <p v-else-if="loadError" class="error-banner">{{ loadError }}</p>
-      <table v-else>
+      <p v-if="punchError" class="error-banner">{{ punchError }}</p>
+      <table v-if="!loading && !loadError">
         <thead>
           <tr>
             <th>Name</th>
             <th>Time in</th>
             <th>Elapsed</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="entry in entries" :key="entry.studentId">
+          <tr v-for="entry in entries" :key="entry.userId">
             <td>{{ entry.fullName }}</td>
             <td>{{ new Date(entry.timeIn).toLocaleTimeString() }}</td>
             <td>{{ elapsed(entry.timeIn) }}</td>
+            <td>
+              <button
+                class="secondary"
+                :disabled="punchingOutId === entry.userId"
+                @click="handlePunchOut(entry.userId)"
+              >
+                {{ punchingOutId === entry.userId ? "Punching out..." : "Punch out" }}
+              </button>
+            </td>
           </tr>
           <tr v-if="entries.length === 0">
-            <td colspan="3">Nobody is currently punched in.</td>
+            <td colspan="4">Nobody is currently punched in.</td>
           </tr>
         </tbody>
       </table>
@@ -82,11 +112,11 @@ onUnmounted(() => {
 
     <section class="card export-card">
       <h2>Export daily attendance</h2>
-      <p class="hint">Download a PDF attendance sheet for a given day.</p>
+      <p class="hint">Download a PDF attendance sheet for a given day, in your local timezone ({{ timeZone }}).</p>
       <div class="export-controls">
         <label for="exportDate">Date</label>
         <input id="exportDate" v-model="exportDate" type="date" />
-        <a class="button-like" :href="attendanceExportUrl(exportDate)">Download PDF</a>
+        <a class="button-like" :href="attendanceExportUrl(exportDate, timeZone)">Download PDF</a>
       </div>
     </section>
   </AdminLayout>

@@ -8,26 +8,97 @@ export async function getCurrentlyPunchedIn(req: Request, res: Response) {
   return res.status(200).json(entries);
 }
 
-function parseDateParam(raw: unknown): { startMs: number; endMs: number } | null {
-  const dateStr = typeof raw === "string" && raw.length > 0 ? raw : null;
-  const base = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
+function isValidTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-  if (Number.isNaN(base.getTime())) {
+// Returns the ms offset such that `local time = utc time + offset` for the
+// given IANA zone, evaluated near `atMs` (close enough to land on the right
+// side of any DST transition for day-boundary math).
+function getTimeZoneOffsetMs(timeZone: string, atMs: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(atMs));
+
+  const map: Record<string, string> = {};
+
+  for (const part of parts) {
+    map[part.type] = part.value;
+  }
+
+  const asUtc = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    Number(map.hour),
+    Number(map.minute),
+    Number(map.second),
+  );
+
+  return asUtc - atMs;
+}
+
+function todayInTimeZone(timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function parseDateParam(raw: unknown, timeZone: string | null): { startMs: number; endMs: number } | null {
+  const dateStr = typeof raw === "string" && raw.length > 0 ? raw : null;
+
+  if (!timeZone) {
+    // No timezone supplied - fall back to the server's own local time.
+    const base = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
+
+    if (Number.isNaN(base.getTime())) {
+      return null;
+    }
+
+    const start = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 0, 0, 0, 0);
+    const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1, 0, 0, 0, 0);
+
+    return { startMs: start.getTime(), endMs: end.getTime() };
+  }
+
+  const resolvedDateStr = dateStr ?? todayInTimeZone(timeZone);
+  const naiveUtcMs = new Date(`${resolvedDateStr}T00:00:00Z`).getTime();
+
+  if (Number.isNaN(naiveUtcMs)) {
     return null;
   }
 
-  const start = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 0, 0, 0, 0);
-  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1, 0, 0, 0, 0);
+  const startMs = naiveUtcMs - getTimeZoneOffsetMs(timeZone, naiveUtcMs);
+  const endMs = startMs + 24 * 60 * 60 * 1000;
 
-  return { startMs: start.getTime(), endMs: end.getTime() };
+  return { startMs, endMs };
 }
 
-function formatTime(ms: number | null): string {
+function formatTime(ms: number | null, timeZone: string | null): string {
   if (ms === null) {
     return "--";
   }
 
-  return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(ms).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(timeZone ? { timeZone } : {}),
+  });
 }
 
 function formatDuration(timeIn: number, timeOut: number | null): string {
@@ -46,14 +117,21 @@ const COLUMNS = [
 ];
 
 export async function exportAttendancePdf(req: Request, res: Response) {
-  const range = parseDateParam(req.query.date);
+  const rawTimeZone = req.query.tz;
+  const timeZone = typeof rawTimeZone === "string" && rawTimeZone.length > 0 ? rawTimeZone : null;
+
+  if (timeZone && !isValidTimeZone(timeZone)) {
+    return res.status(400).json(errors.MALFORMED_ATTENDANCE_EXPORT_REQUEST);
+  }
+
+  const range = parseDateParam(req.query.date, timeZone);
 
   if (!range) {
     return res.status(400).json(errors.MALFORMED_ATTENDANCE_EXPORT_REQUEST);
   }
 
   const sessions = await db.getSessionsForDateRange(range.startMs, range.endMs);
-  const dateLabel = new Date(range.startMs).toLocaleDateString();
+  const dateLabel = new Date(range.startMs).toLocaleDateString([], timeZone ? { timeZone } : undefined);
 
   const doc = new PDFDocument({ margin: 40, size: "letter" });
 
@@ -94,8 +172,8 @@ export async function exportAttendancePdf(req: Request, res: Response) {
     for (const session of sessions) {
       drawRow([
         session.fullName,
-        formatTime(session.timeIn),
-        formatTime(session.timeOut),
+        formatTime(session.timeIn, timeZone),
+        formatTime(session.timeOut, timeZone),
         formatDuration(session.timeIn, session.timeOut),
       ]);
     }

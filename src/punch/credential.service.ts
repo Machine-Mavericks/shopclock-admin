@@ -143,7 +143,7 @@ export function parseRotatingPunchCode(value: string): RotatingPunchCode | null 
   return { credentialId, totp };
 }
 
-export function formatCredentialResponse(student: db.Student, credential: db.PunchCredential, secret: string) {
+export function formatCredentialResponse(user: db.User, credential: db.PunchCredential, secret: string) {
   return credential.type === "rotating"
     ? {
         id: credential.id,
@@ -153,7 +153,7 @@ export function formatCredentialResponse(student: db.Student, credential: db.Pun
         algorithm: "SHA256",
         digits: TOTP_DIGITS,
         period: TOTP_PERIOD_SECONDS,
-        enrollmentCode: generateEnrollmentCode(student.fullName, credential.id, secret),
+        enrollmentCode: generateEnrollmentCode(user.fullName, credential.id, secret),
       }
     : {
         id: credential.id,

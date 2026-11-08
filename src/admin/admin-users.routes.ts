@@ -1,20 +1,24 @@
 import { Router } from "express";
 import {
-  createStudent,
+  createUser,
   getSessions,
-  getStudent,
-  listStudents,
+  getUser,
+  listUsers,
   regenerateCredential,
-} from "./admin-students.controller";
+  setRole,
+  togglePunch,
+} from "./admin-users.controller";
 import { requireAdminSession } from "./admin-auth.middleware";
 
 const router = Router();
 
 router.use(requireAdminSession);
 
-router.get("/", listStudents);
-router.post("/", createStudent);
-router.get("/:id", getStudent);
+router.get("/", listUsers);
+router.post("/", createUser);
+router.get("/:id", getUser);
+router.post("/:id/role", setRole);
+router.post("/:id/punch", togglePunch);
 router.post("/:id/credential", regenerateCredential);
 router.get("/:id/sessions", getSessions);
 
