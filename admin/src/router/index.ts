@@ -11,8 +11,15 @@ const router = createRouter({
     },
     {
       path: "/",
-      name: "users",
+      name: "students",
       component: () => import("../views/UserListView.vue"),
+      props: { role: "student" },
+    },
+    {
+      path: "/mentors",
+      name: "mentors",
+      component: () => import("../views/UserListView.vue"),
+      props: { role: "mentor" },
     },
     {
       path: "/users/:id",
@@ -47,7 +54,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.name === "login" && auth.isAuthenticated) {
-    return { name: "users" };
+    return { name: "students" };
   }
 
   return true;

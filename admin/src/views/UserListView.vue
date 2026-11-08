@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { createUser, listUsers, type Credential, type CredentialType, type User, type UserRole } from "../api/users";
 import { ApiError } from "../api/client";
 import AdminLayout from "../components/AdminLayout.vue";
 import QrDisplay from "../components/QrDisplay.vue";
 
+const props = defineProps<{ role: UserRole }>();
+
+const roleLabel = computed(() => (props.role === "mentor" ? "Mentor" : "Student"));
+const roleLabelPlural = computed(() => (props.role === "mentor" ? "Mentors" : "Students"));
+
 const users = ref<User[]>([]);
 const loading = ref(true);
 const loadError = ref<string | null>(null);
 
+const visibleUsers = computed(() => users.value.filter((user) => user.role === props.role));
+
 const newName = ref("");
-const newRole = ref<UserRole>("student");
 const newCredentialType = ref<CredentialType>("static");
 const newSecret = ref("");
 const creating = ref(false);
@@ -45,7 +51,7 @@ async function handleCreate() {
     const trimmedSecret = newSecret.value.trim();
     const result = await createUser(
       newName.value.trim(),
-      newRole.value,
+      props.role,
       newCredentialType.value,
       trimmedSecret.length > 0 ? trimmedSecret : undefined,
     );
@@ -68,19 +74,13 @@ onMounted(load);
 
 <template>
   <AdminLayout>
-    <h1>Users</h1>
+    <h1>{{ roleLabelPlural }}</h1>
 
     <section class="card create-card">
-      <h2>New user</h2>
+      <h2>New {{ roleLabel.toLowerCase() }}</h2>
       <form @submit.prevent="handleCreate">
         <label for="fullName">Full name</label>
         <input id="fullName" v-model="newName" type="text" required />
-
-        <label for="newRole">Role</label>
-        <select id="newRole" v-model="newRole">
-          <option value="student">Student</option>
-          <option value="mentor">Mentor</option>
-        </select>
 
         <label for="credentialType">Credential type</label>
         <select id="credentialType" v-model="newCredentialType">
@@ -96,7 +96,7 @@ onMounted(load);
         <p v-if="createError" class="error-banner">{{ createError }}</p>
 
         <button type="submit" :disabled="creating">
-          {{ creating ? "Creating..." : "Create user" }}
+          {{ creating ? "Creating..." : `Create ${roleLabel.toLowerCase()}` }}
         </button>
       </form>
 
@@ -129,20 +129,18 @@ onMounted(load);
         <thead>
           <tr>
             <th>Name</th>
-            <th>Role</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in users" :key="user.id">
+          <tr v-for="user in visibleUsers" :key="user.id">
             <td>{{ user.fullName }}</td>
-            <td>{{ user.role === "mentor" ? "Mentor" : "Student" }}</td>
             <td>
               <RouterLink :to="`/users/${user.id}`">View</RouterLink>
             </td>
           </tr>
-          <tr v-if="users.length === 0">
-            <td colspan="3">No users yet.</td>
+          <tr v-if="visibleUsers.length === 0">
+            <td colspan="2">No {{ roleLabelPlural.toLowerCase() }} yet.</td>
           </tr>
         </tbody>
       </table>

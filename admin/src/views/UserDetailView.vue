@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import {
   getSessions,
   getUser,
@@ -39,6 +39,9 @@ const qr = ref<{ label: string; credential: Credential } | null>(null);
 function userId(): number {
   return Number(props.id);
 }
+
+const rosterLink = computed(() => (detail.value?.user.role === "mentor" ? "/mentors" : "/"));
+const rosterLabel = computed(() => (detail.value?.user.role === "mentor" ? "Mentors" : "Students"));
 
 async function load() {
   loading.value = true;
@@ -123,7 +126,7 @@ watch(() => props.id, load);
 
 <template>
   <AdminLayout>
-    <RouterLink to="/">&larr; Back to roster</RouterLink>
+    <RouterLink :to="rosterLink">&larr; Back to {{ rosterLabel }}</RouterLink>
 
     <p v-if="loading">Loading...</p>
     <p v-else-if="loadError" class="error-banner">{{ loadError }}</p>

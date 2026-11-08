@@ -132,6 +132,7 @@ export async function exportAttendancePdf(req: Request, res: Response) {
 
   const sessions = await db.getSessionsForDateRange(range.startMs, range.endMs);
   const dateLabel = new Date(range.startMs).toLocaleDateString([], timeZone ? { timeZone } : undefined);
+  const timeZoneLabel = timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const doc = new PDFDocument({ margin: 40, size: "letter" });
 
@@ -141,6 +142,8 @@ export async function exportAttendancePdf(req: Request, res: Response) {
   doc.pipe(res);
 
   doc.fontSize(16).text(`ShopClock Attendance — ${dateLabel}`, { align: "left" });
+  doc.fontSize(9).fillColor("#555555").text(`Times shown in ${timeZoneLabel}`, { align: "left" });
+  doc.fillColor("#000000");
   doc.moveDown();
 
   const startX = doc.page.margins.left;
